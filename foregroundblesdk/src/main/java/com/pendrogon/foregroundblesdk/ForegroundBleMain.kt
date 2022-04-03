@@ -47,7 +47,7 @@ class ForegroundBleMain(context: Context, idDevice: String) : AppCompatActivity(
         .build()
 
     fun prueba(){
-        Log.d("D", bandera.toString() )
+        Log.d("D", idDevice)
     }
 
     private var isScanning = false
