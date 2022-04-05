@@ -9,6 +9,8 @@ import android.widget.Button;
 
 import com.pendrogon.foregroundblesdk.ForegroundBleMain;
 
+import java.util.ArrayList;
+
 public class MainActivity extends AppCompatActivity {
 
     Button start_bt, stop_bt, manual;
@@ -18,7 +20,8 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        bleForeground = new ForegroundBleMain(this, "202112055");
+        bleForeground = new ForegroundBleMain(this);
+        bleForeground.requestLocationPermission();
 
         start_bt = findViewById(R.id.btnStartService);
         stop_bt = findViewById(R.id.btnStopService);

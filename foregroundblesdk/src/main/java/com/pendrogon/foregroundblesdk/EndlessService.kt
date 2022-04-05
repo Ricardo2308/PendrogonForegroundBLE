@@ -9,13 +9,15 @@ import android.os.IBinder
 import android.os.PowerManager
 import android.os.SystemClock
 import android.provider.Settings
-import android.util.Log
 import android.widget.Toast
-import java.text.SimpleDateFormat
-import java.util.*
 import com.github.kittinunf.fuel.Fuel
 import com.github.kittinunf.fuel.core.extensions.jsonBody
-import kotlinx.coroutines.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.*
 
 
 class EndlessService : Service() {
@@ -23,7 +25,6 @@ class EndlessService : Service() {
     private var wakeLock: PowerManager.WakeLock? = null
     private var isServiceStarted = false
     private var scanForeground: ForegroundBleMain? = null
-    private var idDevice: String = ""
 
     private var mContext: Context? = null
 
@@ -38,7 +39,7 @@ class EndlessService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        idDevice = intent!!.getStringExtra("inputExtra").toString()
+
         log("onStartCommand executed with startId: $startId")
         if (intent != null) {
             val action = intent.action
@@ -81,7 +82,7 @@ class EndlessService : Service() {
     }
     
     private fun startService() {
-        scanForeground = ForegroundBleMain(applicationContext, idDevice)
+        scanForeground = ForegroundBleMain(applicationContext)
         if (isServiceStarted) return
         log("Starting the foreground service task")
         Toast.makeText(this, "Service starting its task", Toast.LENGTH_SHORT).show()

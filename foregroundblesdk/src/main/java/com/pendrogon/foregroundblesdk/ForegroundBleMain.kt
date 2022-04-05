@@ -31,12 +31,12 @@ import kotlin.collections.ArrayList
 private const val ENABLE_BLUETOOTH_REQUEST_CODE = 1
 private const val LOCATION_PERMISSION_REQUEST_CODE = 2
 
-class ForegroundBleMain(context: Context, idDevice: String) : AppCompatActivity() {
+class ForegroundBleMain(context: Context) : AppCompatActivity() {
 
     private var mContext: Context? = context
-    private var idDevice: String = idDevice
+    private var idDevice = "202112055"
     var names = arrayOf("202112055")
-    var bandera = 0
+    private var completado = false
 
     private val bluetoothAdapter = BluetoothAdapter.getDefaultAdapter()
 
@@ -142,9 +142,9 @@ class ForegroundBleMain(context: Context, idDevice: String) : AppCompatActivity(
         } else {
             requestLocationPermission()
         }
-        if (bandera == 1){
+        if (completado){
             respuesta = "Success"
-        }else if (bandera == 0){
+        }else if (!completado){
             respuesta = "Error"
         }
         return respuesta
@@ -155,7 +155,7 @@ class ForegroundBleMain(context: Context, idDevice: String) : AppCompatActivity(
         isScanning = false
     }
 
-    private fun requestLocationPermission() {
+    fun requestLocationPermission() {
         if (isLocationPermissionGranted) {
             return
         }
@@ -174,9 +174,6 @@ class ForegroundBleMain(context: Context, idDevice: String) : AppCompatActivity(
                 scanResults[indexQuery] = result
             } else {
                 with(result.device) {
-                    if (bandera == 1) {
-                        teardownConnection(result.device)
-                    }
                     Log.d("D","Found BLE device! Name: ${name ?: "Unnamed"}, address: $address")
                     if (isScanning) {
                         stopBleScan()
@@ -229,6 +226,9 @@ class ForegroundBleMain(context: Context, idDevice: String) : AppCompatActivity(
                                 )
                             }
                         }
+                    } else {
+                        Log.d("Mensaje", "No hay coincidencia")
+                        //teardownConnection(gatt.device)
                     }
                 }
             }
@@ -249,7 +249,6 @@ class ForegroundBleMain(context: Context, idDevice: String) : AppCompatActivity(
                                 "${hexToASCII(characteristic.value.toHexString().replace(" ", ""))}"
                     )
                     if (hexToASCII(characteristic.value.toHexString().replace(" ", "")) == idDevice) {
-                        bandera = 1
                         with("233341317150396E663544") {
                             if (isNotBlank() && isNotEmpty()) {
                                 val bytes = hexToBytes()
@@ -259,12 +258,14 @@ class ForegroundBleMain(context: Context, idDevice: String) : AppCompatActivity(
                                     characteristic,
                                     bytes
                                 )
+                                completado = true
                             } else {
                                 log("Please enter a hex payload to write to ${characteristic.uuid}")
                             }
                         }
                     }else{
-                        teardownConnection(gatt.device)
+                        Log.d("Mensaje", "No hay coincidencia")
+                        //teardownConnection(gatt.device)
                     }
                 }
             }
@@ -305,7 +306,6 @@ class ForegroundBleMain(context: Context, idDevice: String) : AppCompatActivity(
     private fun actionOnService(action: Actions) {
         if (getServiceState(mContext!!) == ServiceState.STOPPED && action == Actions.STOP) return
         val serviceIntent = Intent(mContext, EndlessService::class.java)
-        serviceIntent.putExtra("inputExtra", idDevice)
         serviceIntent.action = action.name
         ContextCompat.startForegroundService(mContext!!, serviceIntent)
     }
