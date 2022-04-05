@@ -207,14 +207,15 @@ class ForegroundBleMain(context: Context) : AppCompatActivity() {
                 runOnUiThread { startBleScan() }
             }
             onConnectionSetupComplete = { gatt ->
+                var bandera = 0
                 obtenerLectura(gatt.device)
-
                 onCharacteristicRead = { _, characteristic ->
                     Log.d("Dispositivo",
                         "Lectura de antena ${characteristic.uuid}: " +
                                 "${hexToASCII(characteristic.value.toHexString().replace(" ", ""))}"
                     )
-                    if (hexToASCII(characteristic.value.toHexString().replace(" ", "")) == idDevice) {
+                    if(hexToASCII(characteristic.value.toHexString().replace(" ", "")) == idDevice){
+                        bandera = 1
                         with("233341317150396E663544") {
                             if (isNotBlank() && isNotEmpty()) {
                                 val bytes = hexToBytes()
@@ -224,11 +225,12 @@ class ForegroundBleMain(context: Context) : AppCompatActivity() {
                                     characteristic,
                                     bytes
                                 )
+                                completado = true
                             }
                         }
-                    } else {
-                        Log.d("Mensaje", "No hay coincidencia")
-                        //teardownConnection(gatt.device)
+                    }
+                    if(bandera == 0){
+                        teardownConnection(gatt.device)
                     }
                 }
             }
@@ -241,31 +243,31 @@ class ForegroundBleMain(context: Context) : AppCompatActivity() {
                 runOnUiThread { Log.d("Mensaje", "Desconectado") }
             }
             onConnectionSetupComplete = { gatt ->
+                var bandera = 0
                 obtenerLectura(gatt.device)
-
+                Log.d("Mensaje", "Conectado")
                 onCharacteristicRead = { _, characteristic ->
-                    Log.d("D",
-                        "Read from ${characteristic.uuid}: " +
+                    Log.d("Dispositivo",
+                        "Lectura de antena ${characteristic.uuid}: " +
                                 "${hexToASCII(characteristic.value.toHexString().replace(" ", ""))}"
                     )
-                    if (hexToASCII(characteristic.value.toHexString().replace(" ", "")) == idDevice) {
+                    if(hexToASCII(characteristic.value.toHexString().replace(" ", "")) == idDevice){
+                        bandera = 1
                         with("233341317150396E663544") {
                             if (isNotBlank() && isNotEmpty()) {
                                 val bytes = hexToBytes()
-                                log("Writing to ${characteristic.uuid}: ${bytes.toHexString()}")
+                                log("Escritura a la antena ${characteristic.uuid}: ${bytes.toHexString()}")
                                 ConnectionManager.writeCharacteristic(
                                     gatt.device,
                                     characteristic,
                                     bytes
                                 )
                                 completado = true
-                            } else {
-                                log("Please enter a hex payload to write to ${characteristic.uuid}")
                             }
                         }
-                    }else{
-                        Log.d("Mensaje", "No hay coincidencia")
-                        //teardownConnection(gatt.device)
+                    }
+                    if(bandera == 0){
+                        teardownConnection(gatt.device)
                     }
                 }
             }
