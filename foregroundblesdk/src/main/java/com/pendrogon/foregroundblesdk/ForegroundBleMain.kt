@@ -17,11 +17,8 @@ import android.util.Log
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import com.pendrogon.foregroundblesdk.ble.ConnectionEventListener
-import com.pendrogon.foregroundblesdk.ble.ConnectionManager
+import com.pendrogon.foregroundblesdk.ble.*
 import com.pendrogon.foregroundblesdk.ble.ConnectionManager.teardownConnection
-import com.pendrogon.foregroundblesdk.ble.toHexString
-import com.pendrogon.foregroundblesdk.ble.isReadable
 import org.jetbrains.anko.alert
 import timber.log.Timber
 import java.lang.StringBuilder
@@ -94,7 +91,7 @@ class ForegroundBleMain(context: Context) : AppCompatActivity() {
         }
     }
 
-    private fun promptEnableBluetooth() {
+    fun promptEnableBluetooth() {
         if (!bluetoothAdapter.isEnabled) {
             val enableBtIntent = Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)
             startActivityIfNeeded(enableBtIntent, ENABLE_BLUETOOTH_REQUEST_CODE)
@@ -122,8 +119,8 @@ class ForegroundBleMain(context: Context) : AppCompatActivity() {
         }
     }
 
-    fun startBleScanManual() : String{
-        var respuesta = ""
+    fun startBleScanManual(){
+        completado = false
         if (ContextCompat.checkSelfPermission(mContext!!, Manifest.permission.ACCESS_FINE_LOCATION) ==
             PackageManager.PERMISSION_GRANTED) {
             ConnectionManager.registerListener(connectionListenerManual)
@@ -142,12 +139,6 @@ class ForegroundBleMain(context: Context) : AppCompatActivity() {
         } else {
             requestLocationPermission()
         }
-        if (completado){
-            respuesta = "Success"
-        }else if (!completado){
-            respuesta = "Error"
-        }
-        return respuesta
     }
 
     private fun stopBleScan() {
@@ -195,7 +186,8 @@ class ForegroundBleMain(context: Context) : AppCompatActivity() {
             } ?: listOf()
         }
         characteristics.map { characteristic ->
-            if (characteristic.isReadable()) {
+            if (characteristic.isReadable() && characteristic.isWritable()) {
+                Log.d("Caracteristica", characteristic.uuid.toString())
                 ConnectionManager.readCharacteristic(device, characteristic)
             }
         }
@@ -207,15 +199,11 @@ class ForegroundBleMain(context: Context) : AppCompatActivity() {
                 runOnUiThread { startBleScan() }
             }
             onConnectionSetupComplete = { gatt ->
-                var bandera = 0
                 obtenerLectura(gatt.device)
                 onCharacteristicRead = { _, characteristic ->
-                    Log.d("Dispositivo",
-                        "Lectura de antena ${characteristic.uuid}: " +
-                                "${hexToASCII(characteristic.value.toHexString().replace(" ", ""))}"
-                    )
+                    Log.d("Valor","Read from ${characteristic.uuid}: " +
+                            "${hexToASCII(characteristic.value.toHexString().replace(" ", ""))}")
                     if(hexToASCII(characteristic.value.toHexString().replace(" ", "")) == idDevice){
-                        bandera = 1
                         with("233341317150396E663544") {
                             if (isNotBlank() && isNotEmpty()) {
                                 val bytes = hexToBytes()
@@ -228,8 +216,7 @@ class ForegroundBleMain(context: Context) : AppCompatActivity() {
                                 completado = true
                             }
                         }
-                    }
-                    if(bandera == 0){
+                    }else{
                         teardownConnection(gatt.device)
                     }
                 }
@@ -243,31 +230,31 @@ class ForegroundBleMain(context: Context) : AppCompatActivity() {
                 runOnUiThread { Log.d("Mensaje", "Desconectado") }
             }
             onConnectionSetupComplete = { gatt ->
-                var bandera = 0
                 obtenerLectura(gatt.device)
                 Log.d("Mensaje", "Conectado")
                 onCharacteristicRead = { _, characteristic ->
-                    Log.d("Dispositivo",
-                        "Lectura de antena ${characteristic.uuid}: " +
-                                "${hexToASCII(characteristic.value.toHexString().replace(" ", ""))}"
-                    )
-                    if(hexToASCII(characteristic.value.toHexString().replace(" ", "")) == idDevice){
-                        bandera = 1
-                        with("233341317150396E663544") {
-                            if (isNotBlank() && isNotEmpty()) {
-                                val bytes = hexToBytes()
-                                log("Escritura a la antena ${characteristic.uuid}: ${bytes.toHexString()}")
-                                ConnectionManager.writeCharacteristic(
-                                    gatt.device,
-                                    characteristic,
-                                    bytes
-                                )
+                    if(!completado) {
+                        Log.d("Valor","Read from ${characteristic.uuid}: " +
+                                "${characteristic.value.toHexString().replace(" ", "")}")
+                        if(hexToASCII(
+                                characteristic.value.toHexString().replace(" ", "")
+                            ) == idDevice
+                        ){
+                            with("233341317150396E663544") {
+                                if(isNotBlank() && isNotEmpty()){
+                                    val bytes = hexToBytes()
+                                    log("Write to ${characteristic.uuid}: ${bytes.toHexString()}")
+                                    ConnectionManager.writeCharacteristic(
+                                        gatt.device,
+                                        characteristic,
+                                        bytes
+                                    )
+                                }
                                 completado = true
                             }
+                        }else{
+                            teardownConnection(gatt.device)
                         }
-                    }
-                    if(bandera == 0){
-                        teardownConnection(gatt.device)
                     }
                 }
             }

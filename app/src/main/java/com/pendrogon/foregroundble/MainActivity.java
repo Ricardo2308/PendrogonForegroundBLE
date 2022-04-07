@@ -2,6 +2,7 @@ package com.pendrogon.foregroundble;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
@@ -42,7 +43,7 @@ public class MainActivity extends AppCompatActivity {
         manual.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                Log.d("Respuesta", bleForeground.startBleScanManual());
+                bleForeground.startBleScanManual();
             }
         });
     }
