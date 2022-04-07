@@ -21,7 +21,7 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        bleForeground = new ForegroundBleMain(this);
+        bleForeground = new ForegroundBleMain(this, "20211205");
         bleForeground.requestLocationPermission();
 
         start_bt = findViewById(R.id.btnStartService);
@@ -46,5 +46,16 @@ public class MainActivity extends AppCompatActivity {
                 bleForeground.startBleScanManual();
             }
         });
+    }
+
+    @Override public void onResume() {
+        super.onResume();
+        bleForeground.promptEnableBluetooth(MainActivity.this);
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data){
+        super.onActivityResult(requestCode, resultCode, data);
+        bleForeground.onRequestPermissionsBluetooth(requestCode, resultCode, data);
     }
 }

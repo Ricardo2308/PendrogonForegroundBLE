@@ -9,6 +9,7 @@ import android.os.IBinder
 import android.os.PowerManager
 import android.os.SystemClock
 import android.provider.Settings
+import android.util.Log
 import android.widget.Toast
 import com.github.kittinunf.fuel.Fuel
 import com.github.kittinunf.fuel.core.extensions.jsonBody
@@ -39,13 +40,13 @@ class EndlessService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-
+        val idDevice = intent!!.getStringExtra("inputExtra").toString()
         log("onStartCommand executed with startId: $startId")
         if (intent != null) {
             val action = intent.action
             log("using an intent with action $action")
             when (action) {
-                Actions.START.name -> startService()
+                Actions.START.name -> startService(idDevice)
                 Actions.STOP.name -> stopService()
                 else -> log("This should never happen. No action in the received intent")
             }
@@ -81,8 +82,8 @@ class EndlessService : Service() {
         alarmService.set(AlarmManager.ELAPSED_REALTIME, SystemClock.elapsedRealtime() + 1000, restartServicePendingIntent);
     }
     
-    private fun startService() {
-        scanForeground = ForegroundBleMain(applicationContext)
+    private fun startService(idDevice: String) {
+        scanForeground = ForegroundBleMain(applicationContext, idDevice)
         if (isServiceStarted) return
         log("Starting the foreground service task")
         Toast.makeText(this, "Service starting its task", Toast.LENGTH_SHORT).show()

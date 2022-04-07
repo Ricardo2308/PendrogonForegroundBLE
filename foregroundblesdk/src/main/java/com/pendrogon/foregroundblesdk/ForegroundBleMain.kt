@@ -11,7 +11,6 @@ import android.bluetooth.le.ScanSettings
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import androidx.appcompat.app.AppCompatActivity
@@ -19,7 +18,6 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.pendrogon.foregroundblesdk.ble.*
 import com.pendrogon.foregroundblesdk.ble.ConnectionManager.teardownConnection
-import org.jetbrains.anko.alert
 import timber.log.Timber
 import java.lang.StringBuilder
 import java.util.*
@@ -28,10 +26,10 @@ import kotlin.collections.ArrayList
 private const val ENABLE_BLUETOOTH_REQUEST_CODE = 1
 private const val LOCATION_PERMISSION_REQUEST_CODE = 2
 
-class ForegroundBleMain(context: Context) : AppCompatActivity() {
+class ForegroundBleMain(context: Context, idDevice: String) : AppCompatActivity() {
 
     private var mContext: Context? = context
-    private var idDevice = "202112055"
+    private var idDevice = idDevice
     var names = arrayOf("202112055")
     private var completado = false
 
@@ -42,10 +40,6 @@ class ForegroundBleMain(context: Context) : AppCompatActivity() {
     private val scanSettings = ScanSettings.Builder()
         .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
         .build()
-
-    fun prueba(){
-        Log.d("D", idDevice)
-    }
 
     private var isScanning = false
 
@@ -63,14 +57,19 @@ class ForegroundBleMain(context: Context) : AppCompatActivity() {
     private val isLocationPermissionGranted
         get() = hasPermission(Manifest.permission.ACCESS_FINE_LOCATION)
 
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-        when (requestCode) {
-            ENABLE_BLUETOOTH_REQUEST_CODE -> {
-                if (resultCode != Activity.RESULT_OK) {
-                    promptEnableBluetooth()
-                }
-            }
+    fun enableBluetooth(activity: Activity?) {
+        if (bluetoothAdapter != null && !bluetoothAdapter.isEnabled) {
+            promptEnableBluetooth(activity)
+        } else {
+            Log.d("Mensaje", "Bluetooth enabled")
+        }
+    }
+
+    fun onRequestPermissionsBluetooth(requestCode: Int, resultCode: Int, data: Intent?) {
+        if(resultCode == Activity.RESULT_OK && requestCode == ENABLE_BLUETOOTH_REQUEST_CODE) {
+            Log.d("Mensaje", "Bluetooth enabled")
+        }else{
+            Log.d("Mensaje", "Bluetooth doesn't enable")
         }
     }
 
@@ -91,17 +90,23 @@ class ForegroundBleMain(context: Context) : AppCompatActivity() {
         }
     }
 
-    fun promptEnableBluetooth() {
+    fun prueba(){
+        Log.d("Mensaje", idDevice)
+    }
+
+    fun promptEnableBluetooth(activity: Activity?) {
         if (!bluetoothAdapter.isEnabled) {
             val enableBtIntent = Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)
-            startActivityIfNeeded(enableBtIntent, ENABLE_BLUETOOTH_REQUEST_CODE)
+            activity!!.startActivityIfNeeded(enableBtIntent, ENABLE_BLUETOOTH_REQUEST_CODE)
         }
     }
 
     fun startBleScan() {
+        completado = false
         if (ContextCompat.checkSelfPermission(mContext!!, Manifest.permission.ACCESS_FINE_LOCATION) ==
             PackageManager.PERMISSION_GRANTED) {
             ConnectionManager.registerListener(connectionEventListener)
+            Log.d("ID Dispositivo", idDevice)
             var filters: MutableList<ScanFilter?>? = null
             if (names != null) {
                 filters = ArrayList()
@@ -124,6 +129,7 @@ class ForegroundBleMain(context: Context) : AppCompatActivity() {
         if (ContextCompat.checkSelfPermission(mContext!!, Manifest.permission.ACCESS_FINE_LOCATION) ==
             PackageManager.PERMISSION_GRANTED) {
             ConnectionManager.registerListener(connectionListenerManual)
+            Log.d("ID Dispositivo", idDevice)
             var filters: MutableList<ScanFilter?>? = null
             if (names != null) {
                 filters = ArrayList()
@@ -201,23 +207,34 @@ class ForegroundBleMain(context: Context) : AppCompatActivity() {
             onConnectionSetupComplete = { gatt ->
                 obtenerLectura(gatt.device)
                 onCharacteristicRead = { _, characteristic ->
-                    Log.d("Valor","Read from ${characteristic.uuid}: " +
-                            "${hexToASCII(characteristic.value.toHexString().replace(" ", ""))}")
-                    if(hexToASCII(characteristic.value.toHexString().replace(" ", "")) == idDevice){
-                        with("233341317150396E663544") {
-                            if (isNotBlank() && isNotEmpty()) {
-                                val bytes = hexToBytes()
-                                log("Escritura a la antena ${characteristic.uuid}: ${bytes.toHexString()}")
-                                ConnectionManager.writeCharacteristic(
-                                    gatt.device,
-                                    characteristic,
-                                    bytes
-                                )
-                                completado = true
+                    if(!completado) {
+                        Log.d(
+                            "Valor", "Read from ${characteristic.uuid}: " +
+                                    "${
+                                        hexToASCII(
+                                            characteristic.value.toHexString().replace(" ", "")
+                                        )
+                                    }"
+                        )
+                        if (hexToASCII(
+                                characteristic.value.toHexString().replace(" ", "")
+                            ) == idDevice
+                        ) {
+                            with("233341317150396E663544") {
+                                if (isNotBlank() && isNotEmpty()) {
+                                    val bytes = hexToBytes()
+                                    log("Escritura a la antena ${characteristic.uuid}: ${bytes.toHexString()}")
+                                    ConnectionManager.writeCharacteristic(
+                                        gatt.device,
+                                        characteristic,
+                                        bytes
+                                    )
+                                    completado = true
+                                }
                             }
+                        } else {
+                            teardownConnection(gatt.device)
                         }
-                    }else{
-                        teardownConnection(gatt.device)
                     }
                 }
             }
@@ -234,8 +251,14 @@ class ForegroundBleMain(context: Context) : AppCompatActivity() {
                 Log.d("Mensaje", "Conectado")
                 onCharacteristicRead = { _, characteristic ->
                     if(!completado) {
-                        Log.d("Valor","Read from ${characteristic.uuid}: " +
-                                "${characteristic.value.toHexString().replace(" ", "")}")
+                        Log.d(
+                            "Valor", "Read from ${characteristic.uuid}: " +
+                                    "${
+                                        hexToASCII(
+                                            characteristic.value.toHexString().replace(" ", "")
+                                        )
+                                    }"
+                        )
                         if(hexToASCII(
                                 characteristic.value.toHexString().replace(" ", "")
                             ) == idDevice
@@ -249,8 +272,8 @@ class ForegroundBleMain(context: Context) : AppCompatActivity() {
                                         characteristic,
                                         bytes
                                     )
+                                    completado = true
                                 }
-                                completado = true
                             }
                         }else{
                             teardownConnection(gatt.device)
@@ -295,6 +318,7 @@ class ForegroundBleMain(context: Context) : AppCompatActivity() {
     private fun actionOnService(action: Actions) {
         if (getServiceState(mContext!!) == ServiceState.STOPPED && action == Actions.STOP) return
         val serviceIntent = Intent(mContext, EndlessService::class.java)
+        serviceIntent.putExtra("inputExtra", idDevice)
         serviceIntent.action = action.name
         ContextCompat.startForegroundService(mContext!!, serviceIntent)
     }
