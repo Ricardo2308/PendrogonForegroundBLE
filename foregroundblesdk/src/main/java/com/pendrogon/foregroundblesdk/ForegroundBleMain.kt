@@ -22,15 +22,21 @@ import timber.log.Timber
 import java.lang.StringBuilder
 import java.util.*
 import kotlin.collections.ArrayList
+import kotlin.reflect.KClass
 
 private const val ENABLE_BLUETOOTH_REQUEST_CODE = 1
 private const val LOCATION_PERMISSION_REQUEST_CODE = 2
 
-class ForegroundBleMain(context: Context, idDevice: String) : AppCompatActivity() {
+class ForegroundBleMain(
+    context: Context,
+    idDevice: String,
+    antenas: ArrayList<String> /*MainActivity: Class<*>*/
+) : AppCompatActivity() {
 
     private var mContext: Context? = context
     private var idDevice = idDevice
-    var names = arrayOf("202112055")
+    private var antenas: ArrayList<String> = antenas
+    private var MainActivity: Class<*>? = null
     private var completado = false
 
     private val bluetoothAdapter = BluetoothAdapter.getDefaultAdapter()
@@ -90,10 +96,6 @@ class ForegroundBleMain(context: Context, idDevice: String) : AppCompatActivity(
         }
     }
 
-    fun prueba(){
-        Log.d("Mensaje", idDevice)
-    }
-
     fun promptEnableBluetooth(activity: Activity?) {
         if (!bluetoothAdapter.isEnabled) {
             val enableBtIntent = Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)
@@ -108,9 +110,9 @@ class ForegroundBleMain(context: Context, idDevice: String) : AppCompatActivity(
             ConnectionManager.registerListener(connectionEventListener)
             Log.d("ID Dispositivo", idDevice)
             var filters: MutableList<ScanFilter?>? = null
-            if (names != null) {
+            if (antenas != null) {
                 filters = ArrayList()
-                for (name in names) {
+                for (name in antenas) {
                     val filter = ScanFilter.Builder()
                         .setDeviceName(name)
                         .build()
@@ -131,9 +133,9 @@ class ForegroundBleMain(context: Context, idDevice: String) : AppCompatActivity(
             ConnectionManager.registerListener(connectionListenerManual)
             Log.d("ID Dispositivo", idDevice)
             var filters: MutableList<ScanFilter?>? = null
-            if (names != null) {
+            if (antenas != null) {
                 filters = ArrayList()
-                for (name in names) {
+                for (name in antenas) {
                     val filter = ScanFilter.Builder()
                         .setDeviceName(name)
                         .build()
@@ -319,6 +321,7 @@ class ForegroundBleMain(context: Context, idDevice: String) : AppCompatActivity(
         if (getServiceState(mContext!!) == ServiceState.STOPPED && action == Actions.STOP) return
         val serviceIntent = Intent(mContext, EndlessService::class.java)
         serviceIntent.putExtra("inputExtra", idDevice)
+        serviceIntent.putExtra("miLista", antenas);
         serviceIntent.action = action.name
         ContextCompat.startForegroundService(mContext!!, serviceIntent)
     }

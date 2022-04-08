@@ -19,6 +19,10 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
+import android.content.Intent.getIntent
+
+
+
 
 
 class EndlessService : Service() {
@@ -41,12 +45,13 @@ class EndlessService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val idDevice = intent!!.getStringExtra("inputExtra").toString()
+        val antenas = intent!!.getSerializableExtra("miLista") as ArrayList<String>?
         log("onStartCommand executed with startId: $startId")
         if (intent != null) {
             val action = intent.action
             log("using an intent with action $action")
             when (action) {
-                Actions.START.name -> startService(idDevice)
+                Actions.START.name -> startService(idDevice, antenas!!)
                 Actions.STOP.name -> stopService()
                 else -> log("This should never happen. No action in the received intent")
             }
@@ -82,8 +87,8 @@ class EndlessService : Service() {
         alarmService.set(AlarmManager.ELAPSED_REALTIME, SystemClock.elapsedRealtime() + 1000, restartServicePendingIntent);
     }
     
-    private fun startService(idDevice: String) {
-        scanForeground = ForegroundBleMain(applicationContext, idDevice)
+    private fun startService(idDevice: String, antenas: ArrayList<String>) {
+        scanForeground = ForegroundBleMain(applicationContext, idDevice, antenas)//, ForegroundBleMain::class.java)
         if (isServiceStarted) return
         log("Starting the foreground service task")
         Toast.makeText(this, "Service starting its task", Toast.LENGTH_SHORT).show()

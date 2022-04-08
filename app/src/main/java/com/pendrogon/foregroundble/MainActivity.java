@@ -21,7 +21,9 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        bleForeground = new ForegroundBleMain(this, "20211205");
+        ArrayList<String> antenas = new ArrayList<String>();
+        antenas.add("202112055");
+        bleForeground = new ForegroundBleMain(this, "202112055", antenas);//, MainActivity.class);
         bleForeground.requestLocationPermission();
 
         start_bt = findViewById(R.id.btnStartService);
