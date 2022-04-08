@@ -38,6 +38,8 @@ class ForegroundBleMain(
     private var antenas: ArrayList<String> = antenas
     private var MainActivity: Class<*>? = null
     private var completado = false
+    private var conectado = false
+    private var tipoEscaneo = ""
 
     private val bluetoothAdapter = BluetoothAdapter.getDefaultAdapter()
 
@@ -108,6 +110,7 @@ class ForegroundBleMain(
         if (ContextCompat.checkSelfPermission(mContext!!, Manifest.permission.ACCESS_FINE_LOCATION) ==
             PackageManager.PERMISSION_GRANTED) {
             ConnectionManager.registerListener(connectionEventListener)
+            tipoEscaneo = "Foreground"
             Log.d("ID Dispositivo", idDevice)
             var filters: MutableList<ScanFilter?>? = null
             if (antenas != null) {
@@ -119,8 +122,12 @@ class ForegroundBleMain(
                     filters.add(filter)
                 }
             }
-            bleScanner.startScan(filters, scanSettings, scanCallback)
-            isScanning = true
+            if (!conectado) {
+                bleScanner.startScan(filters, scanSettings, scanCallback)
+                isScanning = true
+            }else{
+                Log.d("Mensaje", "Estas conectado")
+            }
         } else {
             requestLocationPermission()
         }
@@ -130,7 +137,8 @@ class ForegroundBleMain(
         completado = false
         if (ContextCompat.checkSelfPermission(mContext!!, Manifest.permission.ACCESS_FINE_LOCATION) ==
             PackageManager.PERMISSION_GRANTED) {
-            ConnectionManager.registerListener(connectionListenerManual)
+            ConnectionManager.registerListener(connectionEventListener)
+            tipoEscaneo = "Manual"
             Log.d("ID Dispositivo", idDevice)
             var filters: MutableList<ScanFilter?>? = null
             if (antenas != null) {
@@ -204,10 +212,18 @@ class ForegroundBleMain(
     private val connectionEventListener by lazy {
         ConnectionEventListener().apply {
             onDisconnect = {
-                runOnUiThread { startBleScan() }
+                runOnUiThread {
+                    if (tipoEscaneo == "Foreground") {
+                        conectado = false
+                        startBleScan()
+                    }else if (tipoEscaneo == "Manual") {
+                        Log.d("Mensaje", tipoEscaneo)
+                    }
+                }
             }
             onConnectionSetupComplete = { gatt ->
                 obtenerLectura(gatt.device)
+                conectado = true
                 onCharacteristicRead = { _, characteristic ->
                     if(!completado) {
                         Log.d(
@@ -235,49 +251,6 @@ class ForegroundBleMain(
                                 }
                             }
                         } else {
-                            teardownConnection(gatt.device)
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    private val connectionListenerManual by lazy {
-        ConnectionEventListener().apply {
-            onDisconnect = {
-                runOnUiThread { Log.d("Mensaje", "Desconectado") }
-            }
-            onConnectionSetupComplete = { gatt ->
-                obtenerLectura(gatt.device)
-                Log.d("Mensaje", "Conectado")
-                onCharacteristicRead = { _, characteristic ->
-                    if(!completado) {
-                        Log.d(
-                            "Valor", "Read from ${characteristic.uuid}: " +
-                                    "${
-                                        hexToASCII(
-                                            characteristic.value.toHexString().replace(" ", "")
-                                        )
-                                    }"
-                        )
-                        if(hexToASCII(
-                                characteristic.value.toHexString().replace(" ", "")
-                            ) == idDevice
-                        ){
-                            with("233341317150396E663544") {
-                                if(isNotBlank() && isNotEmpty()){
-                                    val bytes = hexToBytes()
-                                    log("Write to ${characteristic.uuid}: ${bytes.toHexString()}")
-                                    ConnectionManager.writeCharacteristic(
-                                        gatt.device,
-                                        characteristic,
-                                        bytes
-                                    )
-                                    completado = true
-                                }
-                            }
-                        }else{
                             teardownConnection(gatt.device)
                         }
                     }
