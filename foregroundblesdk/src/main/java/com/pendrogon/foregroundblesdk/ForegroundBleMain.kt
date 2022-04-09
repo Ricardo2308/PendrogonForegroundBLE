@@ -30,13 +30,14 @@ private const val LOCATION_PERMISSION_REQUEST_CODE = 2
 class ForegroundBleMain(
     context: Context,
     idDevice: String,
-    antenas: ArrayList<String> /*MainActivity: Class<*>*/
+    antenas: ArrayList<String>,
+    MainActivity: Class<*>
 ) : AppCompatActivity() {
 
     private var mContext: Context? = context
     private var idDevice = idDevice
     private var antenas: ArrayList<String> = antenas
-    private var MainActivity: Class<*>? = null
+    private var MainActivity: Class<*>? = MainActivity
     private var completado = false
     private var conectado = false
     private var tipoEscaneo = ""
@@ -295,6 +296,7 @@ class ForegroundBleMain(
         val serviceIntent = Intent(mContext, EndlessService::class.java)
         serviceIntent.putExtra("inputExtra", idDevice)
         serviceIntent.putExtra("miLista", antenas);
+        serviceIntent.putExtra("class", MainActivity);
         serviceIntent.action = action.name
         ContextCompat.startForegroundService(mContext!!, serviceIntent)
     }

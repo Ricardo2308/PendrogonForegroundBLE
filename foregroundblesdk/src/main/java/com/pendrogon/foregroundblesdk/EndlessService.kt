@@ -20,22 +20,13 @@ import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
 import android.content.Intent.getIntent
-
-
-
-
+import android.app.Activity
 
 class EndlessService : Service() {
 
     private var wakeLock: PowerManager.WakeLock? = null
     private var isServiceStarted = false
     private var scanForeground: ForegroundBleMain? = null
-
-    private var mContext: Context? = null
-
-    fun setContext(mContext: Context?) {
-        this.mContext = mContext
-    }
 
     override fun onBind(intent: Intent): IBinder? {
         log("Some component want to bind with the service")
@@ -46,12 +37,13 @@ class EndlessService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val idDevice = intent!!.getStringExtra("inputExtra").toString()
         val antenas = intent!!.getSerializableExtra("miLista") as ArrayList<String>?
+        val MainActivity = intent!!.getSerializableExtra("class") as Class<*>?
         log("onStartCommand executed with startId: $startId")
         if (intent != null) {
             val action = intent.action
             log("using an intent with action $action")
             when (action) {
-                Actions.START.name -> startService(idDevice, antenas!!)
+                Actions.START.name -> startService(idDevice, antenas!!, MainActivity!!)
                 Actions.STOP.name -> stopService()
                 else -> log("This should never happen. No action in the received intent")
             }
@@ -67,8 +59,6 @@ class EndlessService : Service() {
     override fun onCreate() {
         super.onCreate()
         log("The service has been created".toUpperCase())
-        val notification = createNotification()
-        startForeground(1, notification)
     }
 
     override fun onDestroy() {
@@ -87,8 +77,10 @@ class EndlessService : Service() {
         alarmService.set(AlarmManager.ELAPSED_REALTIME, SystemClock.elapsedRealtime() + 1000, restartServicePendingIntent);
     }
     
-    private fun startService(idDevice: String, antenas: ArrayList<String>) {
-        scanForeground = ForegroundBleMain(applicationContext, idDevice, antenas)//, ForegroundBleMain::class.java)
+    private fun startService(idDevice: String, antenas: ArrayList<String>, MainActivity: Class<*>) {
+        val notification = createNotification(MainActivity)
+        startForeground(1, notification)
+        scanForeground = ForegroundBleMain(applicationContext, idDevice, antenas, ForegroundBleMain::class.java)
         if (isServiceStarted) return
         log("Starting the foreground service task")
         Toast.makeText(this, "Service starting its task", Toast.LENGTH_SHORT).show()
@@ -163,7 +155,7 @@ class EndlessService : Service() {
         }
     }
 
-    private fun createNotification(): Notification {
+    private fun createNotification(MainActivity: Class<*>): Notification {
         val notificationChannelId = "ENDLESS SERVICE CHANNEL"
 
         // depending on the Android API that we're dealing with we will have
@@ -185,7 +177,8 @@ class EndlessService : Service() {
             notificationManager.createNotificationChannel(channel)
         }
 
-        val pendingIntent: PendingIntent = Intent(this, ForegroundBleMain::class.java).let { notificationIntent ->
+        val pendingIntent: PendingIntent = Intent(this,
+            MainActivity).let { notificationIntent ->
             PendingIntent.getActivity(this, 0, notificationIntent, 0)
         }
 
