@@ -66,14 +66,6 @@ class ForegroundBleMain(
     private val isLocationPermissionGranted
         get() = hasPermission(Manifest.permission.ACCESS_FINE_LOCATION)
 
-    fun enableBluetooth(activity: Activity?) {
-        if (bluetoothAdapter != null && !bluetoothAdapter.isEnabled) {
-            promptEnableBluetooth(activity)
-        } else {
-            Log.d("Mensaje", "Bluetooth enabled")
-        }
-    }
-
     fun onRequestPermissionsBluetooth(requestCode: Int, resultCode: Int, data: Intent?) {
         if(resultCode == Activity.RESULT_OK && requestCode == ENABLE_BLUETOOTH_REQUEST_CODE) {
             Log.d("Mensaje", "Bluetooth enabled")
@@ -100,7 +92,7 @@ class ForegroundBleMain(
     }
 
     fun promptEnableBluetooth(activity: Activity?) {
-        if (!bluetoothAdapter.isEnabled) {
+        if (bluetoothAdapter != null && !bluetoothAdapter.isEnabled) {
             val enableBtIntent = Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)
             activity!!.startActivityIfNeeded(enableBtIntent, ENABLE_BLUETOOTH_REQUEST_CODE)
         }
@@ -214,11 +206,12 @@ class ForegroundBleMain(
         ConnectionEventListener().apply {
             onDisconnect = {
                 runOnUiThread {
-                    if (tipoEscaneo == "Foreground") {
+                    if (tipoEscaneo == "Foreground"){
                         conectado = false
                         startBleScan()
                     }else if (tipoEscaneo == "Manual") {
-                        Log.d("Mensaje", tipoEscaneo)
+                        Log.d("Mensaje", "Desconectado")
+                        ConnectionManager.unregisterListener(this)
                     }
                 }
             }
@@ -288,6 +281,8 @@ class ForegroundBleMain(
     }
 
     fun StopForeground(){
+        stopBleScan()
+        ConnectionManager.unregisterListener(connectionEventListener)
         actionOnService(Actions.STOP)
     }
 
