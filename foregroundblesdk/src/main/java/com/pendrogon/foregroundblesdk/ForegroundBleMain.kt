@@ -30,14 +30,12 @@ private const val LOCATION_PERMISSION_REQUEST_CODE = 2
 class ForegroundBleMain(
     context: Context,
     idDevice: String,
-    antenas: ArrayList<String>,
-    MainActivity: Class<*>
+    antenas: ArrayList<String>
 ) : AppCompatActivity() {
 
     private var mContext: Context? = context
     private var idDevice = idDevice
     private var antenas: ArrayList<String> = antenas
-    private var MainActivity: Class<*>? = MainActivity
     private var completado = false
     private var conectado = false
     private var tipoEscaneo = ""
@@ -100,53 +98,61 @@ class ForegroundBleMain(
 
     fun startBleScan() {
         completado = false
-        if (ContextCompat.checkSelfPermission(mContext!!, Manifest.permission.ACCESS_FINE_LOCATION) ==
-            PackageManager.PERMISSION_GRANTED) {
-            ConnectionManager.registerListener(connectionEventListener)
-            tipoEscaneo = "Foreground"
-            Log.d("ID Dispositivo", idDevice)
-            var filters: MutableList<ScanFilter?>? = null
-            if (antenas != null) {
-                filters = ArrayList()
-                for (name in antenas) {
-                    val filter = ScanFilter.Builder()
-                        .setDeviceName(name)
-                        .build()
-                    filters.add(filter)
+        if (!conectado) {
+            if (ContextCompat.checkSelfPermission(mContext!!, Manifest.permission.ACCESS_FINE_LOCATION) ==
+                PackageManager.PERMISSION_GRANTED) {
+                ConnectionManager.registerListener(connectionEventListener)
+                tipoEscaneo = "Foreground"
+                Log.d("ID Dispositivo", idDevice)
+                var filters: MutableList<ScanFilter?>? = null
+                if (antenas != null) {
+                    filters = ArrayList()
+                    for (name in antenas) {
+                        val filter = ScanFilter.Builder()
+                            .setDeviceName(name)
+                            .build()
+                        filters.add(filter)
+                    }
                 }
-            }
-            if (!conectado) {
                 bleScanner.startScan(filters, scanSettings, scanCallback)
                 isScanning = true
-            }else{
-                Log.d("Mensaje", "Estas conectado")
+            } else {
+                requestLocationPermission()
             }
         } else {
-            requestLocationPermission()
+            Log.d("Mensaje", "Estas conectado")
         }
     }
 
-    fun startBleScanManual(){
+    fun startBleScanManual() {
         completado = false
-        if (ContextCompat.checkSelfPermission(mContext!!, Manifest.permission.ACCESS_FINE_LOCATION) ==
-            PackageManager.PERMISSION_GRANTED) {
-            ConnectionManager.registerListener(connectionEventListener)
-            tipoEscaneo = "Manual"
-            Log.d("ID Dispositivo", idDevice)
-            var filters: MutableList<ScanFilter?>? = null
-            if (antenas != null) {
-                filters = ArrayList()
-                for (name in antenas) {
-                    val filter = ScanFilter.Builder()
-                        .setDeviceName(name)
-                        .build()
-                    filters.add(filter)
+        if (connectionEventListener == null){
+            if (ContextCompat.checkSelfPermission(
+                    mContext!!,
+                    Manifest.permission.ACCESS_FINE_LOCATION
+                ) ==
+                PackageManager.PERMISSION_GRANTED
+            ) {
+                ConnectionManager.registerListener(connectionEventManual)
+                tipoEscaneo = "Manual"
+                Log.d("ID Dispositivo", idDevice)
+                var filters: MutableList<ScanFilter?>? = null
+                if (antenas != null) {
+                    filters = ArrayList()
+                    for (name in antenas) {
+                        val filter = ScanFilter.Builder()
+                            .setDeviceName(name)
+                            .build()
+                        filters.add(filter)
+                    }
                 }
+                bleScanner.startScan(filters, scanSettings, scanCallback)
+                isScanning = true
+            } else {
+                requestLocationPermission()
             }
-            bleScanner.startScan(filters, scanSettings, scanCallback)
-            isScanning = true
         } else {
-            requestLocationPermission()
+            ConnectionManager.unregisterListener(connectionEventListener)
         }
     }
 
@@ -206,13 +212,54 @@ class ForegroundBleMain(
         ConnectionEventListener().apply {
             onDisconnect = {
                 runOnUiThread {
-                    if (tipoEscaneo == "Foreground"){
                         conectado = false
                         startBleScan()
-                    }else if (tipoEscaneo == "Manual") {
+                }
+            }
+            onConnectionSetupComplete = { gatt ->
+                obtenerLectura(gatt.device)
+                conectado = true
+                onCharacteristicRead = { _, characteristic ->
+                    if(!completado) {
+                        Log.d(
+                            "Valor", "Read from ${characteristic.uuid}: " +
+                                    "${
+                                        hexToASCII(
+                                            characteristic.value.toHexString().replace(" ", "")
+                                        )
+                                    }"
+                        )
+                        if (hexToASCII(
+                                characteristic.value.toHexString().replace(" ", "")
+                            ) == idDevice
+                        ) {
+                            with("233341317150396E663544") {
+                                if (isNotBlank() && isNotEmpty()) {
+                                    val bytes = hexToBytes()
+                                    log("Escritura a la antena ${characteristic.uuid}: ${bytes.toHexString()}")
+                                    ConnectionManager.writeCharacteristic(
+                                        gatt.device,
+                                        characteristic,
+                                        bytes
+                                    )
+                                    completado = true
+                                }
+                            }
+                        } else {
+                            teardownConnection(gatt.device)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private val connectionEventManual by lazy {
+        ConnectionEventListener().apply {
+            onDisconnect = {
+                runOnUiThread {
                         Log.d("Mensaje", "Desconectado")
                         ConnectionManager.unregisterListener(this)
-                    }
                 }
             }
             onConnectionSetupComplete = { gatt ->
@@ -281,7 +328,9 @@ class ForegroundBleMain(
     }
 
     fun StopForeground(){
-        stopBleScan()
+        if (isScanning) {
+            stopBleScan()
+        }
         ConnectionManager.unregisterListener(connectionEventListener)
         actionOnService(Actions.STOP)
     }
@@ -291,7 +340,6 @@ class ForegroundBleMain(
         val serviceIntent = Intent(mContext, EndlessService::class.java)
         serviceIntent.putExtra("inputExtra", idDevice)
         serviceIntent.putExtra("miLista", antenas);
-        serviceIntent.putExtra("class", MainActivity);
         serviceIntent.action = action.name
         ContextCompat.startForegroundService(mContext!!, serviceIntent)
     }
